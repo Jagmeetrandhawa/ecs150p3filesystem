@@ -35,7 +35,7 @@ struct RootDirectory
  }__attribute__((__packed__));
 typedef struct RootDirectory RootDirectory_t; 
 
-unint16_t  *FAT;
+uint16_t  *FAT;
 SupperBlock_t S_B;
 
 
@@ -71,7 +71,7 @@ int fs_mount(const char *diskname)
 		return retval;
 	}
 
-
+	FAT = malloc(S_B.ADBlock*sizeof(uint16_t));
 
 	return retval;
 }
