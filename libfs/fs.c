@@ -9,9 +9,61 @@
 
 /* TODO: Phase 1 */
 
+//https://stackoverflow.com/questions/12213866/is-attribute-packed-ignored-on-a-typedef-declaration/37184767
+//https://gcc.gnu.org/onlinedocs/gcc-3.3/gcc/Type-Attributes.html
+
+//defining the structures for Supper Block, FAT, RootDirectory, 
+struct SupperBlock
+{
+	//uint64_t  Signature;    //Signature
+	char      Signature[8];
+	uint16_t  NumOfBlock;   //Total amount of virtual disk
+	uint16_t  RDBIndex;     //Root directory block index
+	uint16_t  DBSIndex;     //Data block start index
+	uint16_t  ADBlock;      //Amount of data blocks
+	uint8_t   NumBlockFat;  //Numbers of blocks for FAT
+	uint8_t   Unused[4079]; //Unused/Padding
+ }__attribute__((__packed__));
+typedef struct SupperBlock SupperBlock_t;
+
+struct RootDirectory
+{
+	uint8_t    Filename[16];   //Filename????
+	uint32_t   SizeFile;       //Size of the file
+	uint16_t   IndexFDB;       //Index of the first data block
+	uint8_t    Unused[10];     //Unused/Padding
+ }__attribute__((__packed__));
+typedef struct RootDirectory RootDirectory_t; 
+
+unint16_t  *FAT;
+SupperBlock_t S_B;
+
+
 int fs_mount(const char *diskname)
 {
 	/* TODO: Phase 1 */
+	int retval = 0;
+	char SIG[8] = 
+
+	retval = block_disk_open(diskname);
+	if (retval == -1) //There was no virtual disk file opened
+	{
+		return retval;
+	}
+	retval = block_read(0, &S_B);
+	if (retval == -1)
+	{
+		return retval;
+	}
+	//compare the signature with "ECS150FS"
+	retval = memcmp(S_B.Signature, "ECS150FS", 8);
+	if (retval != 0)
+	{
+		return retval;
+	}
+	//Compare the total number of block with block_disk_count();
+
+	return retval;
 }
 
 int fs_umount(void)
