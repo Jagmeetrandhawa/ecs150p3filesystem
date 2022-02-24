@@ -43,7 +43,10 @@ int fs_mount(const char *diskname)
 {
 	/* TODO: Phase 1 */
 	int retval = 0;
-	char SIG[8] = 
+	char SIG[8];
+
+	memset(SIG, '\0', 8);
+	memcpy(SIG, "ECS150FS", 8);
 
 	retval = block_disk_open(diskname);
 	if (retval == -1) //There was no virtual disk file opened
@@ -56,12 +59,19 @@ int fs_mount(const char *diskname)
 		return retval;
 	}
 	//compare the signature with "ECS150FS"
-	retval = memcmp(S_B.Signature, "ECS150FS", 8);
+	retval = memcmp(S_B.Signature, SIG, 8);
 	if (retval != 0)
 	{
 		return retval;
 	}
 	//Compare the total number of block with block_disk_count();
+	if (block_disk_count() != S_B.NumOfBlock)
+	{
+		retval = -1;
+		return retval;
+	}
+
+
 
 	return retval;
 }
