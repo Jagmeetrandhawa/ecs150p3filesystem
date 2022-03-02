@@ -650,7 +650,7 @@ int fs_write(int fd, void *buf, size_t count)
 	int nxtIndex;
 	int currIndex;
 	
-	if(Root_Directory[findFile].IndexFDB == FAT_EOC && buf != NULL){
+	if(Root_Directory[findFile].IndexFDB == FAT_EOC && count != 0){
 		Root_Directory[findFile].IndexFDB = FAT_First_Fit();
 	}
 	currIndex = Root_Directory[findFile].IndexFDB+S_B.DBSIndex;
