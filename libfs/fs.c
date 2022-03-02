@@ -147,7 +147,7 @@ int FAT_First_Fit()
 		if (FAT[index] == 0)
 		{
 			index = i;
-			printf("what is this index: %d\n what is S_B.ADBLOCK: %d\n",index,S_B.ADBlock);
+			//printf("what is this index: %d\n what is S_B.ADBLOCK: %d\n",index,S_B.ADBlock);
 			return index;
 		}
 	}
@@ -340,7 +340,7 @@ int fs_create(const char *filename)
 	return retval;
 }
 
-/**
+/*
  * fs_delete - Delete a file
  * @filename: File name
  *
@@ -648,20 +648,25 @@ int fs_write(int fd, void *buf, size_t count)
 
 	memset(tempBuf, '\0', sizeof(char));
 	int nxtIndex;
-	int currIndex = Root_Directory[findFile].IndexFDB+S_B.DBSIndex;
+	int currIndex;
+	if(Root_Directory[findFile].IndexFDB == FAT_EOC){
+		Root_Directory[findFile].IndexFDB = FAT_First_Fit();
+	}
+	currIndex = Root_Directory[findFile].IndexFDB+S_B.DBSIndex;
+	
 
 	int startBlock = offset / BLOCK_SIZE;
 	int NumBlock = count / BLOCK_SIZE;
 	int startOffset = offset % BLOCK_SIZE;
 	int endOffset = count % BLOCK_SIZE;
 	int newBlockIndex;
-	printf("Root_Directory[findFile].IndexFDB outside loop is %d\n\n", Root_Directory[findFile].IndexFDB);
-	printf("--\nfindFile IN WRITE--- %d\n\n", findFile);
+	//printf("Root_Directory[findFile].IndexFDB outside loop is %d\n\n", Root_Directory[findFile].IndexFDB);
+	//printf("--\nfindFile IN WRITE--- %d\n\n", findFile);
 
-	printf("currIndex outside loop is %d\n\n",currIndex);
-	printf("offsett outside loop is %d\n\n",offset);
-	printf("count outside loop is %ld\n\n",count);
-	printf("fd is : %d\n\n", fd);
+	//printf("currIndex outside loop is %d\n\n",currIndex);
+	//printf("offsett outside loop is %d\n\n",offset);
+	//printf("count outside loop is %ld\n\n",count);
+	//printf("fd is : %d\n\n", fd);
 
 
 
@@ -679,7 +684,7 @@ int fs_write(int fd, void *buf, size_t count)
 	{
 		if(((offset+count)/BLOCK_SIZE) == 0)//if(startBlock == 0)
 		{
-			printf("currIndex is : %d\n and count is : %ld\n", currIndex, count);
+			//printf("currIndex is : %d\n and count is : %ld\n", currIndex, count);
 			memcpy(tempBuf , buf, count);
 			block_write(currIndex, tempBuf);
 			Root_Directory[findFile].SizeFile += count; 
@@ -874,9 +879,9 @@ int fs_read(int fd, void *buf, size_t count)
 	memset(tempBuf, '\0', sizeof(char));
 	int nxtIndex;
 	int currIndex = Root_Directory[findFile].IndexFDB+S_B.DBSIndex;
-	printf("Root_Directory[findFile].IndexFDB outside loop is IN READ %d\n\n", Root_Directory[findFile].IndexFDB);
-	printf("findFile IN READ %d\n\n", findFile);
-	printf("currIndex is: %d\n\n", currIndex);
+	//printf("Root_Directory[findFile].IndexFDB outside loop is IN READ %d\n\n", Root_Directory[findFile].IndexFDB);
+	//printf("findFile IN READ %d\n\n", findFile);
+	//printf("currIndex is: %d\n\n", currIndex);
 
 
 	//int currIndex = S_B.DBSIndex;
@@ -903,20 +908,21 @@ int fs_read(int fd, void *buf, size_t count)
 			block_read(currIndex, tempBuf);
 			memcpy(buf , tempBuf+startOffset, count);
 			readCount = count;
+			//printf("readcount is first first block: %ld\n", readCount);
 			
 		}
 		else//we need to read two blocks
 		{
 			block_read(currIndex, tempBuf);
-			memcpy(buf , tempBuf+startOffset, BLOCK_SIZE-offset);
-			//fd_table[fd].offset = offset + count-offset;
+			memcpy(buf, tempBuf+startOffset, BLOCK_SIZE-offset);
+			//fd_table[fd].offset += count-offset;
 			nxtIndex = FAT[currIndex];
 			currIndex = nxtIndex;
 			block_read(currIndex, tempBuf);
 			memcpy(buf+BLOCK_SIZE-offset+1 , tempBuf, count-(BLOCK_SIZE-offset));
 			readCount = count;
 		}
-		fd_table[fd].offset = offset + count;
+		fd_table[fd].offset += count;
 	
 	}
 	else
@@ -928,8 +934,10 @@ int fs_read(int fd, void *buf, size_t count)
 
 				block_read(currIndex, tempBuf);
 				memcpy(buf , tempBuf+startOffset, BLOCK_SIZE-startOffset+i);
-				readCount = BLOCK_SIZE - startOffset + i;
-				fd_table[fd].offset = offset + BLOCK_SIZE-startOffset+i;
+				readCount = (BLOCK_SIZE - startOffset + i);
+				//printf("readCount is in first block: %ld\n", readCount);
+
+				fd_table[fd].offset += BLOCK_SIZE-startOffset+i;
 				if(FAT[currIndex] != FAT_EOC){//////???????
 					nxtIndex = FAT[currIndex];
 					currIndex = nxtIndex;
@@ -940,6 +948,8 @@ int fs_read(int fd, void *buf, size_t count)
 				block_read(currIndex, tempBuf);
 				memcpy(buf+(i-1)*BLOCK_SIZE+(BLOCK_SIZE-startOffset+i) , tempBuf, BLOCK_SIZE);
 				readCount += BLOCK_SIZE;
+				//printf("readCount is in middle block: %ld\n", readCount);
+
 				fd_table[fd].offset += BLOCK_SIZE;//fd_table[fd].offset = offset + BLOCK_SIZE;
 				//printf("is the seg fault here:??\n");
 				if(FAT[currIndex] != FAT_EOC){
@@ -955,6 +965,8 @@ int fs_read(int fd, void *buf, size_t count)
 					block_read(currIndex, tempBuf);
 					memcpy(buf+(i-1)*BLOCK_SIZE+(BLOCK_SIZE-startOffset+i) , tempBuf, endOffset+startOffset-1);
 					fd_table[fd].offset += endOffset+startOffset-1;
+					readCount += endOffset + startOffset - 1;
+				//	printf("readCount is in last block: %ld\n", readCount);
 				}
 
 				if(FAT[currIndex] != FAT_EOC){
