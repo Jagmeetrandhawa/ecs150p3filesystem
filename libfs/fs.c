@@ -654,6 +654,7 @@ int fs_write(int fd, void *buf, size_t count)
 		Root_Directory[findFile].IndexFDB = FAT_First_Fit();
 	}
 	currIndex = Root_Directory[findFile].IndexFDB+S_B.DBSIndex;
+
 	
 
 	int startBlock = offset / BLOCK_SIZE;
@@ -685,19 +686,39 @@ int fs_write(int fd, void *buf, size_t count)
 	{
 		if(((offset+count)/BLOCK_SIZE) == 0)//if(startBlock == 0)
 		{
+
 			//printf("currIndex is : %d\n and count is : %ld\n", currIndex, count);
-			memcpy(tempBuf , buf, count);
+			block_read(currIndex, tempBuf);
+			if(offset > 0){
+				memcpy(tempBuf + startOffset + 1 , buf, startOffset + 1);
+			}
+			else{
+			memcpy(tempBuf + startOffset , buf, count);
+			}
 			block_write(currIndex, tempBuf);
+			//printf("size of file if block ==0 BEFORE ADDING is: %d\n",Root_Directory[findFile].SizeFile);
+
 			Root_Directory[findFile].SizeFile += count; 
+			//Root_Directory[findFile].SizeFile = count; 
+			//printf("count in WRITE is: %ld\n", count);
+			//printf("size of file if block ==0 is: %d\n",Root_Directory[findFile].SizeFile);
+
 			writeCount = count;
-		}
+			}
 		else//we need to write into two blocks
 		{
 			block_read(currIndex, tempBuf);
-			memcpy(tempBuf+startOffset , buf, BLOCK_SIZE-offset);
+			if(offset > 0){
+				memcpy(tempBuf + startOffset + 1 , buf, count);
+			}
+			else{
+			memcpy(tempBuf+startOffset, buf, BLOCK_SIZE-offset);
+			}
 			block_write(currIndex, tempBuf);
 			//fd_table[fd].offset = offset + count-offset;
 			Root_Directory[findFile].SizeFile += BLOCK_SIZE-offset; 
+			//printf("size of file in ELSE is: %d\n",Root_Directory[findFile].SizeFile);
+
 			nxtIndex = FAT[currIndex];
 			currIndex = nxtIndex;
 			if(FAT[currIndex] == FAT_EOC) // create a block
@@ -711,6 +732,8 @@ int fs_write(int fd, void *buf, size_t count)
 					memcpy(tempBuf, buf+BLOCK_SIZE-offset+1, count-(BLOCK_SIZE-offset));
 					block_write(currIndex, tempBuf);
 					Root_Directory[findFile].SizeFile += count-(BLOCK_SIZE-offset); 
+				//	printf("size of file in create IF block is: %d\n",Root_Directory[findFile].SizeFile);
+
 					writeCount = count;
 				}
 			}
@@ -719,6 +742,8 @@ int fs_write(int fd, void *buf, size_t count)
 				memcpy(tempBuf, buf+BLOCK_SIZE-offset+1, count-(BLOCK_SIZE-offset));
 				block_write(currIndex, tempBuf);
 				Root_Directory[findFile].SizeFile += count-(BLOCK_SIZE-offset); 
+			//	printf("size of file in create block ELSE is: %d\n",Root_Directory[findFile].SizeFile);
+
 				writeCount = count;
 			}
 		}
@@ -739,11 +764,17 @@ int fs_write(int fd, void *buf, size_t count)
 					if(i == 0) //first block
 					{	
 						block_read(currIndex, tempBuf);
-						memcpy(tempBuf+startOffset ,buf , BLOCK_SIZE-startOffset+i);
+						if(offset > 0){
+							memcpy(tempBuf + startOffset + 1 , buf, BLOCK_SIZE-startOffset+i);
+							}
+						else{
+							memcpy(tempBuf+startOffset ,buf , BLOCK_SIZE-startOffset+i);
+						}
 						block_write(currIndex, tempBuf);
 						writeCount = BLOCK_SIZE - startOffset + i;
 						fd_table[fd].offset = offset + BLOCK_SIZE-startOffset+i;
 						Root_Directory[findFile].SizeFile += BLOCK_SIZE-startOffset+i;
+						//printf("size of file in first block is: %d\n",Root_Directory[findFile].SizeFile);
 						FAT[currIndex] = newBlockIndex;
 						FAT[newBlockIndex] = FAT_EOC;
 						currIndex = newBlockIndex;
@@ -805,9 +836,11 @@ int fs_write(int fd, void *buf, size_t count)
 					{
 						block_read(currIndex, tempBuf);
 						memcpy(tempBuf, buf+(i-1)*BLOCK_SIZE+(BLOCK_SIZE-startOffset+i), endOffset+startOffset-1);
+						//printf("(i-1)*BLOCK_SIZE+(BLOCK_SIZE-startOffset+i): %ld\n", (i-1)*BLOCK_SIZE+(BLOCK_SIZE-startOffset+i));
+
 						block_write(currIndex, tempBuf);
 						fd_table[fd].offset += endOffset+startOffset-1;
-						writeCount += BLOCK_SIZE;
+						writeCount += endOffset + startOffset;
 						nxtIndex = FAT[currIndex];
 						currIndex = nxtIndex;
 					}
@@ -880,6 +913,7 @@ int fs_read(int fd, void *buf, size_t count)
 	memset(tempBuf, '\0', sizeof(char));
 	int nxtIndex;
 	int currIndex = Root_Directory[findFile].IndexFDB+S_B.DBSIndex;
+	size_t fileSize = Root_Directory[findFile].SizeFile;
 	//printf("Root_Directory[findFile].IndexFDB outside loop is IN READ %d\n\n", Root_Directory[findFile].IndexFDB);
 	//printf("findFile IN READ %d\n\n", findFile);
 	//printf("currIndex is: %d\n\n", currIndex);
@@ -893,6 +927,18 @@ int fs_read(int fd, void *buf, size_t count)
 	int startOffset = offset % BLOCK_SIZE;
 	int endOffset = count % BLOCK_SIZE;//(offset + count) % BLOCK_SIZE;
 	size_t readCount = 0;
+	
+	//printf("count out of if is : %ld\n", count);
+
+	if(offset+count >= fileSize)
+	{
+		count = fileSize;
+	}
+	//printf("count is : %ld\n", count);
+	//printf("endoffset is : %d\n",endOffset);
+	//printf("size of file is: %ld\n", fileSize);
+	//printf(" startoffset is: %d\n", startOffset);
+
 	if (startBlock > 0)
 	{
 		for(int i = 0; i < startBlock-1; i++)
@@ -903,13 +949,27 @@ int fs_read(int fd, void *buf, size_t count)
 			}
 		}
 	}
+	//printf("currindex is: : %d\n", currIndex);
+	//printf("offset is : %d\n", offset);
+	//printf("start offset is : %d\n", startOffset);
+
+
+
 	if(NumBlock == 0){//(startBlock == endBlock){//we need to read one block
+
 		if(((offset+count)/BLOCK_SIZE) == 0)//if(startBlock == 0)
 		{
 			block_read(currIndex, tempBuf);
-			memcpy(buf , tempBuf+startOffset, count);
+			if(offset > 0 ){
+				memcpy(buf , tempBuf+startOffset+1, count);
+			}
+			else{
+				memcpy(buf , tempBuf+startOffset, count);
+			}
+			
 			readCount = count;
 			//printf("readcount is first first block: %ld\n", readCount);
+
 			
 		}
 		else//we need to read two blocks
@@ -922,6 +982,7 @@ int fs_read(int fd, void *buf, size_t count)
 			block_read(currIndex, tempBuf);
 			memcpy(buf+BLOCK_SIZE-offset+1 , tempBuf, count-(BLOCK_SIZE-offset));
 			readCount = count;
+			//printf("readcount is first first else block: %ld\n", readCount);
 		}
 		fd_table[fd].offset += count;
 	
@@ -930,12 +991,41 @@ int fs_read(int fd, void *buf, size_t count)
 	{
 		for(size_t i = 0; i <= ((offset+count)/BLOCK_SIZE); i++)//for(int i = 0; i <= NumBlock; i++)
 		{
+			//printf("\ni is : %ld\n",i);			
+
 			if(i == 0) //first block
 			{
+				//printf("COUNT IS : %ld\n", count);
 
 				block_read(currIndex, tempBuf);
-				memcpy(buf , tempBuf+startOffset, BLOCK_SIZE-startOffset+i);
-				readCount = (BLOCK_SIZE - startOffset + i);
+				if(offset > 0 ){
+					if(count > BLOCK_SIZE)
+					{
+						memcpy(buf , tempBuf+startOffset+1, BLOCK_SIZE-startOffset+i);
+						readCount = (BLOCK_SIZE - startOffset + i);
+					}
+					else
+					{
+						memcpy(buf , tempBuf+startOffset+1, count-startOffset+i);
+						readCount = (count - startOffset-offset + i);
+						//printf("are we HERE: \n");
+
+					}
+				}
+				else{
+					if(count > BLOCK_SIZE)
+					{
+						memcpy(buf , tempBuf+startOffset+1, BLOCK_SIZE-startOffset+i);
+						readCount = (BLOCK_SIZE - startOffset + i);
+						
+					}
+					else
+					{
+						memcpy(buf , tempBuf+startOffset+1, count-startOffset+i);
+						readCount = (count - startOffset - offset + i);
+					}
+				}
+				//readCount = (BLOCK_SIZE - startOffset + i);
 				//printf("readCount is in first block: %ld\n", readCount);
 
 				fd_table[fd].offset += BLOCK_SIZE-startOffset+i;
@@ -965,9 +1055,16 @@ int fs_read(int fd, void *buf, size_t count)
 				if(readCount < count){
 					block_read(currIndex, tempBuf);
 					memcpy(buf+(i-1)*BLOCK_SIZE+(BLOCK_SIZE-startOffset+i) , tempBuf, endOffset+startOffset-1);
+					//printf("(i-1)*BLOCK_SIZE+(BLOCK_SIZE-startOffset+i): %ld\n", (i-1)*BLOCK_SIZE+(BLOCK_SIZE-startOffset+i));
+
+				//	printf("readCount is in last block before: %ld\n", readCount);
 					fd_table[fd].offset += endOffset+startOffset-1;
-					readCount += endOffset + startOffset - 1;
+					readCount += endOffset + startOffset;
 				//	printf("readCount is in last block: %ld\n", readCount);
+				//	printf("\nstartoffset is : %d\n",startOffset);
+				//	printf("\nendoffset is : %d\n",endOffset);
+
+
 				}
 
 				if(FAT[currIndex] != FAT_EOC){
