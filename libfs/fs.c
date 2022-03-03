@@ -811,6 +811,12 @@ int fs_write(int fd, void *buf, size_t count)
 			{
 				if(i == 0) //first block
 				{	
+					if(offset > 0){
+							memcpy(tempBuf + startOffset + 1 , buf, BLOCK_SIZE-startOffset+i);
+							}
+					else{
+							memcpy(tempBuf+startOffset ,buf , BLOCK_SIZE-startOffset+i);
+						}
 					block_read(currIndex, tempBuf);
 					memcpy(tempBuf+startOffset ,buf , BLOCK_SIZE-startOffset+i);
 					block_write(currIndex, tempBuf);
@@ -962,9 +968,11 @@ int fs_read(int fd, void *buf, size_t count)
 			block_read(currIndex, tempBuf);
 			if(offset > 0 ){
 				memcpy(buf , tempBuf+startOffset+1, count);
+				//printf("are we here8\n");
 			}
 			else{
 				memcpy(buf , tempBuf+startOffset, count);
+			//	printf("are we here7\n");
 			}
 			
 			readCount = count;
@@ -983,6 +991,8 @@ int fs_read(int fd, void *buf, size_t count)
 			memcpy(buf+BLOCK_SIZE-offset+1 , tempBuf, count-(BLOCK_SIZE-offset));
 			readCount = count;
 			//printf("readcount is first first else block: %ld\n", readCount);
+			//printf("are we here6\n");
+
 		}
 		fd_table[fd].offset += count;
 	
@@ -995,20 +1005,27 @@ int fs_read(int fd, void *buf, size_t count)
 
 			if(i == 0) //first block
 			{
-				//printf("COUNT IS : %ld\n", count);
+			//	printf("COUNT IS : %ld\n", count);
+			//	printf("OFFSET IS %d\n", offset);
 
 				block_read(currIndex, tempBuf);
+			//	printf("WHat is currindex: %d\n",currIndex);
 				if(offset > 0 ){
 					if(count > BLOCK_SIZE)
 					{
 						memcpy(buf , tempBuf+startOffset+1, BLOCK_SIZE-startOffset+i);
 						readCount = (BLOCK_SIZE - startOffset + i);
+						//printf("are we here5\n");
+
 					}
 					else
 					{
-						memcpy(buf , tempBuf+startOffset+1, count-startOffset+i);
-						readCount = (count - startOffset-offset + i);
-						//printf("are we HERE: \n");
+						memcpy(buf , tempBuf + startOffset, count-startOffset+i );
+						//memcpy(buf , tempBuf+startOffset+1, startOffset+i);
+						readCount = (count - startOffset + i);
+						//printf("we are here 4: \n");
+						//printf("\n\nCOUNT IS in 4: %ld\n\n", count);
+						//printf("\n\nstartoffser IS : %d\n\n", startOffset);
 
 					}
 				}
@@ -1017,12 +1034,16 @@ int fs_read(int fd, void *buf, size_t count)
 					{
 						memcpy(buf , tempBuf+startOffset+1, BLOCK_SIZE-startOffset+i);
 						readCount = (BLOCK_SIZE - startOffset + i);
-						
+						//printf("are we here3\n");
+
 					}
 					else
 					{
-						memcpy(buf , tempBuf+startOffset+1, count-startOffset+i);
-						readCount = (count - startOffset - offset + i);
+						memcpy(buf , tempBuf+startOffset, count-startOffset+i);
+						readCount = (count - startOffset + i);
+						//printf("are we here2\n");
+
+
 					}
 				}
 				//readCount = (BLOCK_SIZE - startOffset + i);
@@ -1040,6 +1061,7 @@ int fs_read(int fd, void *buf, size_t count)
 				memcpy(buf+(i-1)*BLOCK_SIZE+(BLOCK_SIZE-startOffset+i) , tempBuf, BLOCK_SIZE);
 				readCount += BLOCK_SIZE;
 				//printf("readCount is in middle block: %ld\n", readCount);
+					printf("are we here\n");
 
 				fd_table[fd].offset += BLOCK_SIZE;//fd_table[fd].offset = offset + BLOCK_SIZE;
 				//printf("is the seg fault here:??\n");
@@ -1056,7 +1078,6 @@ int fs_read(int fd, void *buf, size_t count)
 					block_read(currIndex, tempBuf);
 					memcpy(buf+(i-1)*BLOCK_SIZE+(BLOCK_SIZE-startOffset+i) , tempBuf, endOffset+startOffset-1);
 					//printf("(i-1)*BLOCK_SIZE+(BLOCK_SIZE-startOffset+i): %ld\n", (i-1)*BLOCK_SIZE+(BLOCK_SIZE-startOffset+i));
-
 				//	printf("readCount is in last block before: %ld\n", readCount);
 					fd_table[fd].offset += endOffset+startOffset-1;
 					readCount += endOffset + startOffset;
